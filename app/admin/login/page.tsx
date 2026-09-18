@@ -56,16 +56,18 @@ function AdminLoginContent() {
             ? "/admin/l2"
             : "/admin/l1";
 
+        // Force a full server-aware context navigation so the Edge middleware
+        // and admin layout immediately recognize the Set-Cookie session credentials.
         setTimeout(() => {
-          router.push(targetUrl);
-        }, 800);
+          window.location.href = targetUrl;
+        }, 300);
       } else {
         const msg = json.error?.message || `Authentication failed (HTTP ${res.status})`;
         setError(msg);
+        setIsLoading(false);
       }
     } catch (err: any) {
       setError(err.message || "Failed to reach authentication server.");
-    } finally {
       setIsLoading(false);
     }
   };
