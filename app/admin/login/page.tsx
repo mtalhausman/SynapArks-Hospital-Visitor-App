@@ -1,18 +1,34 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, LogIn, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl");
+
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [role, setRole] = useState<"l1" | "l2">("l1");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Auto-focus role based on callbackUrl if provided
+  useEffect(() => {
+    if (callbackUrl) {
+      if (callbackUrl.includes("/admin/l2")) {
+        setRole("l2");
+        setEmail((prev) => (!prev || prev.includes("l1") ? "supervisor.l2@hospital.org" : prev));
+      } else if (callbackUrl.includes("/admin/l1")) {
+        setRole("l1");
+        setEmail((prev) => (!prev || prev.includes("l2") ? "agent.l1@hospital.org" : prev));
+      }
+    }
+  }, [callbackUrl]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,8 +47,17 @@ export default function AdminLoginPage() {
       const json = await res.json().catch(() => ({}));
       if (res.ok && json.success) {
         setSuccessMsg("Authenticated successfully. Redirecting...");
+
+        // Determine destination: honor callbackUrl if valid admin path, otherwise role queue
+        const targetUrl =
+          callbackUrl && callbackUrl.startsWith("/admin") && !callbackUrl.startsWith("/admin/login")
+            ? callbackUrl
+            : role === "l2"
+            ? "/admin/l2"
+            : "/admin/l1";
+
         setTimeout(() => {
-          router.push(role === "l2" ? "/admin/l2" : "/admin/l1");
+          router.push(targetUrl);
         }, 800);
       } else {
         const msg = json.error?.message || `Authentication failed (HTTP ${res.status})`;
@@ -169,3 +194,19 @@ export default function AdminLoginPage() {
     </div>
   );
 }
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-md mx-auto py-16 text-center">
+          <Loader2 className="w-6 h-6 animate-spin text-indigo-600 mx-auto mb-2" />
+          <p className="text-xs text-gray-500">Loading staff login...</p>
+        </div>
+      }
+    >
+      <AdminLoginContent />
+    </Suspense>
+  );
+}
+
